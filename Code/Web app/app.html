@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <title>Health caretaker bot IOT</title>
+        <script src="https://www.gstatic.com/firebasejs/8.1.1/firebase-app.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.1.1/firebase-auth.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.1.1/firebase-database.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/8.1.1/firebase-firestore.js"></script>
+
+        <script type="text/javascript">
+        var USER;
+        var TID;
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCF0Rg66qdvLZ4tqxiwiLgf1gDp994TIZk",
+    authDomain: "personal-healthcaretaker.firebaseapp.com",
+    databaseURL: "https://personal-healthcaretaker-default-rtdb.firebaseio.com",
+    projectId: "personal-healthcaretaker",
+    storageBucket: "personal-healthcaretaker.appspot.com",
+    messagingSenderId: "177425404334",
+    appId: "1:177425404334:web:bb51ef11ae1b70a229f83f",
+    measurementId: "G-VVP6VYQHFH"
+  };
+
+var DP = firebase.initializeApp(firebaseConfig);
+
+function onClickSignin(){
+    document.getElementById("login").style.display = "none";
+    document.getElementById("signup").style.display = "block";
+}
+
+function onClickLogin(){
+    document.getElementById("signup").style.display = "none";
+    document.getElementById("login").style.display = "block";
+}
+
+function sendResetMail(){
+    var email = document.getElementById("Remail").value;
+    firebase.auth().sendPasswordResetEmail(email).then(function() {
+    		alert("Mail Sent Sucessfully ! Open link in mail to reset password");
+            document.getElementById("rstbtn").setAttribute("data-dismiss","modal");
+        })
+        .catch(function(error) {
+            var errorMessage = error.message;
+            alert("An Error Occured!\n "+errorMessage);
+        });
+}
+
+function myfun(){
+    var email = document.getElementById("email").value;
+    var password = document.getElementById("pass").value;
+    if(password==document.getElementById("cpass").value ){
+        firebase.auth().createUserWithEmailAndPassword(email, password).then(function(result) {
+            firebase.auth().signInWithEmailAndPassword(email, password).then((user) => {
+                    firebase.auth().currentUser.updateProfile({
+                        displayName: document.getElementById("fname").value,
+                        photoURL: ""
+                    }).then(function() {
+                        var displayName = firebase.auth().currentUser.displayName;
+                        uid = displayName;
+                        alert("user "+displayName+ " signup sucessfull");
+                        document.getElementById("signup").style.display = "none";
+                        document.getElementById("login").style.display = "block";
+                        document.getElementById("activitybar").style.display = "none";
+                      }, function(error) {
+                        var errorCode = error.code;
+                        var errorMessage = error.message;
+                        alert("An Error Occured!\n "+errorMessage);
+                      });
+                })
+                .catch((error) => {
+                    var errorCode = error.code;
+                    var errorMessage = error.message;
+                    alert("An Error Occured!\n "+errorMessage);
+                });
+            }).catch(function(error) {
+            var errorCode = error.code;
+            var errorMessage = error.message;
+            alert("An Error Occured!\n "+errorMessage);
+        });
+    }
+    else{
+        alert("An Error Occured!\n Passwords did not match!");
+    }
+}
+
+function onLogout(){
+    firebase.auth().signOut().then(function() {
+        alert("Logout Sucessfull");
+        document.getElementById("activity").style.display = "none";
+        document.getElementById("activitybar").style.display = "none";
+        document.getElementById("EditUserCard").style.display = "none";
+        document.getElementById("AddDeviceCard").style.display = "none";
+        document.getElementById("login").style.display = "block";
+
+    }).catch(function(error) {
+        var errorCode = error.code;
+        var errorMessage = error.message;
+        alert("An Error Occured!\n "+errorMessage);
+    });
+}
+
+function onLogin(){
+    var email = document.getElementById("Lemail").value;
+    var password = document.getElementById("Lpass").value;
+    firebase.auth().signInWithEmailAndPassword(email, password).then((user) => {
+        //alert("User "+ firebase.auth().currentUser.displayName +" Login Sucessfull");
+        document.getElementById("login").style.display = "none";
+        document.getElementById("activity").style.display = "block";
+        document.getElementById("activitybar").style.display = "";
+        var ud = document.createElement("h3");
+        USER = firebase.auth().currentUser;
+        ud.innerHTML = USER.displayName;
+	document.getElementById("navuname").innerHTML = " Welcome "+USER.displayName+ " !<span class=\"sr-only\">(current)</span>"
+
+        if(!firebase.auth().currentUser.emailVerified){
+          document.getElementById("edat").innerHTML = '<div class="container"><button class="btn btn-danger btn-block" onClick="sendVerificatonMail()">Verify Email</button></div>';
+	  document.getElementById("SendDataToDevice").style.display = "none";
+	  document.getElementById("edat").innerHTML += "<div class=\"container text-centre\" style=\"padding-top: 10px;\" ><h4>Verify email first to access devices and its data</h4></div>";
+        }else{
+            document.getElementById("edat").innerHTML = "";
+            firebase.database().ref("Email_IDs/"+USER.email.replaceAll("@","-{AT}-").replaceAll(".","-{DOT}-")).set(USER.uid);
+        }
+        document.getElementById("MyDevicesboxopt").selectedIndex = 0;
+        refreshContent();
+        onChangeDevice();
+        document.getElementById("Devicedata").innerHTML = "<div class=\"alert alert-warning\"><strong>Alert !</strong> <p>No Device Selected</p></div>"
+        document.getElementById("SendDataToDevice").style.display = "none";
+
+    })
+    .catch((error) => {
+        var errorCode = error.code;
+        var errorMessage = error.message;
+        alert("An Error Occured!\n "+errorMessage);
+    });
+}
+
+function onChangeUserDetails(){
+  let person = document.getElementById("edituname").value;
+  if (person != null && person != USER.displayName && person != '') {
+    firebase.auth().currentUser.updateProfile({
+                        displayName: person,
+                        photoURL: ""
+                    }).then(function() {
+                        document.getElementById("navuname").innerHTML = " Welcome "+USER.displayName+ " !<span class=\"sr-only\">(current)</span>"
+                      }, function(error) {
+                        var errorCode = error.code;
+                        var errorMessage = error.message;
+                        alert("An Error Occured!\n "+errorMessage);
+                      });
+  }
+  let tid = document.getElementById("edittid").value;
+
+  if (tid !='' && tid != TID)	{
+  let root = firebase.database().ref('Telegram_IDs/'+TID).remove();
+        if (root){
+            root = firebase.database().ref('Telegram_IDs/'+tid).set(USER.uid);
+            root.then(function(value){
+	            firebase.database().ref('Users/'+USER.uid+'/Telegram_ID').set(tid).then(function(value){ TID = tid; alert("Details updated successfully!")},function(error){dat = error; alert("An error occured ! "+dat.message);});
+        }, function(error){dat = error; alert("An error occured ! "+dat.message);});
+
+        } else {
+            alert("Failed to set telegram id");
+        }
+  }
+
+}
+
+
+function sendVerificatonMail(){
+    firebase.auth().currentUser.sendEmailVerification().then(function() {
+        alert("Mail Sent Sucessful Open Link in mail to Complete Verification");
+        document.getElementById("edat").innerHTML = "";
+    }).catch(function(error) {
+        var errorCode = error.code;
+        var errorMessage = error.message;
+        alert("An Error Occured!\n "+errorMessage);
+    });
+
+}
+
+firebase.auth().onAuthStateChanged((user) => {
+    if (user) {
+      // User is signed in, see docs for a list of available properties
+      // https://firebase.google.com/docs/reference/js/firebase.User
+      // ...
+    } else {
+      // User is signed out
+      // ...
+
+    }
+  });
+
+function onClickProfile(){
+    document.getElementById("activity").style.display = "none";
+    document.getElementById("AddDeviceCard").style.display = "none";
+    document.getElementById("EditUserCard").style.display = "block";
+    document.getElementById("edituname").value = USER.displayName;
+    firebase.database().ref('Users/'+USER.uid+'/Telegram_ID').once('value').then((snapshot) => {
+            if (snapshot.exists()) {
+              data = snapshot.val()
+	      TID = data;
+              document.getElementById("edittid").value = data;
+            } else {
+              console.log("No data available");
+            }
+          }).catch((error) => {
+            console.error(error);
+    });
+
+}
+
+function onClickAddDevice(){
+    document.getElementById("activity").style.display = "none";
+    document.getElementById("EditUserCard").style.display = "none";
+    document.getElementById("AddDeviceCard").style.display = "block";
+}
+
+
+
+function onClickRemoveDevice(){
+    if (document.getElementById("MyDevicesboxopt").selectedIndex == 0){
+        alert("No device selected");
+    }
+    else {
+	if (confirm("Are you sure to remove "+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].innerText+" device !")) {
+      	    txt = "You pressed OK!";
+	    root = firebase.database().ref('Users/'+USER.uid+'/devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value).remove();
+	    if (root) {
+	        document.getElementById("devids-"+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value).remove();
+		    refreshContent();
+		    onChangeDevice();
+	    }
+	    else {alert("Failed to remove device");}
+    	}   else {
+      	    txt = "You pressed Cancel!";
+	}
+    }
+}
+
+function closeDeviceCard(){
+	document.getElementById("AddDeviceCard").style.display = "none";
+	document.getElementById("EditUserCard").style.display = "none";
+	document.getElementById("activity").style.display = "block";
+}
+
+function addDevices(){
+    var root = firebase.database().ref('Users/'+USER.uid+'/devices/'+document.getElementById("addDevice").value+"/Name").set(document.getElementById("addDeviceName").value);
+    document.getElementById("AddDeviceCard").style.display = "none";
+    if (root){
+        firebase.database().ref('Devices/'+document.getElementById("addDevice").value+'/Status').once('value').then((snapshot) => {
+        if (snapshot.exists()) {
+            data = snapshot.val();
+	    var root2 = firebase.database().ref('Devices/'+document.getElementById("addDevice").value+"/Users/Requests/"+USER.uid).set(USER.email);
+	    if (root2){
+            	alert("New device add request sent successfully"); refreshContent();
+	    }
+        } else {
+              console.log("Invalid Device ID");
+              alert("Invalid Device ID! Make sure the entered device id is correct");
+              firebase.database().ref('Users/'+USER.uid+'/devices/'+document.getElementById("addDevice").value).remove();
+        }
+        }).catch((error) => {
+            console.error(error);
+            alert("Failed to add device");
+    });
+
+
+
+    }
+    else { alert("An error occured !") }
+    document.getElementById("activity").style.display = "block";
+}
+
+
+function refreshContent(){
+    var data
+    document.getElementById("AddDeviceCard").style.display = "none";
+    firebase.database().ref('Users/'+USER.uid+'/devices').once('value').then((snapshot) => {
+        if (snapshot.exists()) {
+          document.getElementById("MyDevicesboxopt").innerHTML = "<div class=\"dropdown-menu\"><option class=\"dropdown-item\" selected value='0' >Select Device</option></div>"
+          data = snapshot.val()
+          var idx = 1
+          for (let x in data){
+            const node = document.createElement("option");
+            node.id = "devids-"+x
+            node.value = x
+            node.className = "dropdown-item"
+            node.innerText = data[x]['Name']
+            document.getElementById("MyDevicesboxopt").appendChild(node)
+          }
+        } else {
+          console.log("No data available");
+        }
+      }).catch((error) => {
+        console.error(error);
+      });
+    if (document.getElementById("MyDevicesboxopt").selectedIndex == 0){
+        document.getElementById("Devicedata").innerHTML = "<div class=\"alert alert-warning\"><strong>Alert !</strong> <p>No Device Selected</p></div>"
+        document.getElementById("Deviceuserspanel").innerHTML = ""
+    }
+    else{
+	if(!USER.emailVerified){ document.getElementById("SendDataToDevice").style.display = "none"; }
+        data = ""
+
+    }
+
+
+}
+
+function onChangeDevice(){
+    if (document.getElementById("MyDevicesboxopt").selectedIndex == 0 ){
+        document.getElementById("Devicedata").innerHTML = "<div class=\"alert alert-warning\"><strong>Alert !</strong> <p>No Device Selected</p></div>"
+        document.getElementById("SendDataToDevice").style.display = "none"
+        document.getElementById("Deviceuserspanel").innerHTML = ""
+    }
+    else if (!USER.emailVerified){
+        document.getElementById("Devicedata").innerHTML = "<div class=\"alert alert-warning\"><strong>Access denied !</strong> <p> Verify email-id first</p></div>"
+        document.getElementById("SendDataToDevice").style.display = "none"
+    }
+    else{
+        document.getElementById("Devicedata").innerHTML = ""
+        document.getElementById("Deviceuserspanel").innerHTML = ""
+        document.getElementById("SendDataToDevice").style.display = ""
+	firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+'/Users/Admin').once('value').then((snapshot) => {
+            if (snapshot.exists()) {
+              data = snapshot.val()
+	      if (data == USER.uid){
+          document.getElementById("Deviceuserspanel").innerHTML = "<div class=\"container mt-lg-6\" style=\"padding-top: 15px; padding-bottom: 12px;\"><h2>Manage users : </h2><p>Users with device access and user access requests appears here</p></div>"
+
+    firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+'/Users/Access').once('value').then((snapshot) => {
+        if (snapshot.exists()) {
+            data = snapshot.val()
+        for (let x in data){
+            		const node = document.createElement("div");
+            		node.id = "asus-"+x
+            		node.innerHTML = "<div class=\"input-group m-0 mb-3\"><a type=\"text\" class=\"form-control\">"+ data[x] +"</a><div class=\"input-group-append\"><button class=\"btn btn-danger mt-0 mr-0\" type=\"button\" onClick=\"removeUserAccessPressed('"+x+"','"+data[x]+"');\">Revoke Access</button></div></div>"
+           		  document.getElementById("Deviceuserspanel").appendChild(node)
+        }
+          }});
+
+		firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+'/Users/Requests').once('value').then((snapshot) => {
+        if (snapshot.exists()) {
+            data = snapshot.val()
+
+
+        for (let x in data){
+            		const node = document.createElement("div");
+            		node.id = "us-"+x
+            		node.innerHTML = "<div id=\"userblock"+x+"\"class=\"card mt-2 mb-2\"><div class=\"card-body bg-outline-primary\"><h4 class=\"card-title\">"+data[x]+"</h4><p class=\"card-text\">New device access request</p><button type=\"button\" class=\"btn btn-outline-success mr-2\" onClick=\"acceptUserPressed('"+x+"','"+data[x]+"');\">Accept</button><button type=\"button\" class=\"btn btn-outline-danger\" onClick=\"rejectUserPressed('"+x+"','"+data[x]+"');\">Reject</button></div></div>"
+           		  document.getElementById("Deviceuserspanel").appendChild(node)
+        }
+          }});
+  	      }
+            } else {
+              console.log("No data available");
+              //alert("No data available");
+              document.getElementById("Deviceuserspanel").innerHTML = "<div class=\"alert alert-danger\"><strong>Error!</strong> <p>No data available </p></div>"
+            }
+          }).catch((error) => {
+            console.error(error);
+          });
+
+        firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+'/Data/medicine alarm time').once('value').then((snapshot) => {
+            if (snapshot.exists()) {
+              data = snapshot.val()
+              document.getElementById("Devicedata").innerHTML = "<div class=\"container mt-lg-6\" style=\"padding-top: 15px;\"><h2> Medicine alarm times : </h2><h5>"+data+"</h5></div>"
+
+              document.getElementById("setALtime").value = data;
+            } else {
+              console.log("No data available");
+              //alert("No data available");
+              document.getElementById("Devicedata").innerHTML = "<div class=\"alert alert-danger\"><strong>Error!</strong> <p>No data available </p></div>"
+            }
+          }).catch((error) => {
+            console.error(error);
+          });
+          firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+'/Data/Temperature_logs').limitToLast(20).once('value').then((snapshot) => {
+            if (snapshot.exists()) {
+              data = snapshot.val()
+              let ele = document.createElement("div")
+              var htmltext = "<div class=\"container mt-sm-6\" style=\"padding-top: 15px;\"><h2>Temperature Readings</h2><p>last 20 temperature sensor readings in Fahrenhiet scale</p><table class=\"table table-striped\"><thead><tr><th>Date</th><th>Time</th><th>Readings</th></tr></thead><tbody>"
+              let j=0; for(j in data){};
+              for(let i=Number(j);i>Number(j)-20 && i > -1 ;i--){
+                  htmltext += "<tr>"
+                  htmltext += "<td>"+data[i]['Date']+"</td>"
+                  htmltext += "<td>"+data[i]['Time']+"</td>"
+                  htmltext += "<td>"+data[i]['Temperature']+"</td>"
+                  htmltext += "</tr>"
+              }
+              ele.innerHTML = htmltext + "</tbody></table></div>"
+              document.getElementById("Devicedata").append(ele)
+            } else {
+              console.log("No data available");
+              //alert("No data available");
+              document.getElementById("Devicedata").innerHTML += "<div class=\"alert alert-warning\"><strong>Alert!</strong> <p>No temperature logs data available </p></div>"
+            }
+          });
+          firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+'/Data/Pulse_Oximeter_logs').limitToLast(20).once('value').then((snapshot) => {
+            if (snapshot.exists()) {
+              data = snapshot.val()
+              let ele = document.createElement("div")
+              var htmltext = "<div class=\"container mt-sm-6\" style=\"padding-top: 15px;\"><h2>Pulse Oximetry Readings</h2><p>last 20 Heartrate and spo2 sensor readings</p><table class=\"table table-striped\"><thead><tr><th>Date</th><th>Time</th><th>Heart rate</th><th>Spo2</th></tr></thead><tbody>"
+              let j=0; for(j in data){};
+              for(let i=Number(j);i>Number(j)-20 && i > -1 ;i--){
+                  htmltext += "<tr>"
+                  htmltext += "<td>"+data[i]['Date']+"</td>"
+                  htmltext += "<td>"+data[i]['Time']+"</td>"
+                  htmltext += "<td>"+data[i]['Heart rate']+"</td>"
+                  htmltext += "<td>"+data[i]['Spo2']+"</td>"
+                  htmltext += "</tr>"
+              }
+              ele.innerHTML = htmltext + "</tbody></table></div>"
+              document.getElementById("Devicedata").append(ele)
+            } else {
+              console.log("No data available");
+              //alert("No data available");
+              document.getElementById("Devicedata").innerHTML += "<div class=\"alert alert-warning\"><strong>Alert!</strong> <p>No pulse oximetery logs data available </p></div>"
+            }
+          });
+          firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+'/Data/Messages_logs').limitToLast(10).once('value').then((snapshot) => {
+            if (snapshot.exists()) {
+              data = snapshot.val()
+              let ele = document.createElement("div")
+              var htmltext = "<div class=\"container mt-sm-6\" style=\"padding-top: 15px;\"><h2>Messages</h2><p>Recent 10 messages/notes</p><table class=\"table table-striped\"><thead><tr><th>Date</th><th>Time</th><th>Content</th></tr></thead><tbody>"
+              let j=0; for(j in data){};
+              for(let i=Number(j);i>Number(j)-10 && i > -1 ;i--){
+                  htmltext += "<tr>"
+                  htmltext += "<td>"+data[i]['Date']+"</td>"
+                  htmltext += "<td>"+data[i]['Time']+"</td>"
+                  htmltext += "<td>"+data[i]['Content']+"</td>"
+                  htmltext += "</tr>"
+              }
+              ele.innerHTML = htmltext + "</tbody></table></div>"
+              document.getElementById("Devicedata").append(ele)
+            } else {
+              console.log("No data available");
+              //alert("No data available");
+              document.getElementById("Devicedata").innerHTML += "<div class=\"alert alert-warning\"><strong>Error!</strong> <p>No messages/notes </p></div>"
+            }
+          });
+          firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+'/Data/Medicine_logs').limitToLast(20).once('value').then((snapshot) => {
+            if (snapshot.exists()) {
+              data = snapshot.val()
+              let ele = document.createElement("div")
+              var htmltext = "<div class=\"container mt-sm-6\" style=\"padding-top: 15px; padding-bottom: 15px;\"><h2>Medicine Records</h2><p>Last 20 medicine status records</p><table class=\"table table-striped\"><thead><tr><th>Date</th><th>Time</th><th>Status</th></tr></thead><tbody>"
+              let j=0; for(j in data){};
+              for(let i=Number(j);i>Number(j)-10 && i > -1 ;i--){
+                  htmltext += "<tr>"
+                  htmltext += "<td>"+data[i]['Date']+"</td>"
+                  htmltext += "<td>"+data[i]['Time']+"</td>"
+                  htmltext += "<td>"+data[i]['Status']+"</td>"
+                  htmltext += "</tr>"
+              }
+              ele.innerHTML = htmltext + "</tbody></table></div>"
+              document.getElementById("Devicedata").append(ele)
+            } else {
+              console.log("No data available");
+              //alert("No data available");
+              document.getElementById("Devicedata").innerHTML += "<div class=\"alert alert-warning\"><strong>Alert!</strong> <p>No medicine status record data available </p></div>"
+            }
+          });
+    }
+}
+
+function acceptUserPressed(key,val){
+      var root = firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+"/Users/Access/"+key).set(val);
+	    if (root){ alert("request accepted successfully");
+              firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+"/Users/Requests/"+key).remove();
+      document.getElementById("us-"+key).remove();
+      }
+}
+
+function rejectUserPressed(key,val){
+  firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+"/Users/Requests/"+key).remove();
+  document.getElementById("us-"+key).remove();
+}
+
+function removeUserAccessPressed(key,val){
+  if (confirm("Are you sure to remove user "+val)){
+      firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+"/Users/Access/"+key).remove();
+  document.getElementById("asus-"+key).remove();
+  }
+}
+
+function setMedicineAlarmTimes(){
+    let root = firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+'/Data/medicine alarm time').set(document.getElementById("setALtime").value)
+    root.then(function(value){
+        dat=value; alert("New Alarm times set Successfully");
+        firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+'/Data/Metadata').once('value').then((snapshot) => {
+        if (snapshot.exists()) {
+          data = snapshot.val();
+          data['Stream_Update'] = "A"+(Number(data['Stream_Update'].substr(1))+1);
+          let root = firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+'/Data/Metadata').update(data);
+          if (root){
+          } else {
+            alert("Failed to send realtime update! need to update manually");
+          }
+        onChangeDevice();
+        }
+        }).catch((error) => {
+	        alert(error.message)
+            console.error(error);
+        });
+
+    }, function(error){dat = error; alert("An error occured ! Enter a valid input - All alarm times in format 'hh:mm,hh:mm,' or 'hh:mm:ss,hh:mm:ss,' "); });
+
+
+
+}
+
+function setSOSDetails(){
+    let root = firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+'/Data/SOS Details').set({"Contact No" :
+    document.getElementById("setContact").value,
+    "Sos Message" :
+    document.getElementById("setSosMessage").value})
+    root.then(function(value){ dat=value; alert("Details set Successfully"); }, function(error){dat = error; alert("An error occured ! "+dat.message);});
+}
+
+function sendNoteMessage(){
+    firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+'/Data/Metadata').once('value').then((snapshot) => {
+        if (snapshot.exists()) {
+          data = snapshot.val();
+          var today = new Date();
+          var dd = String(today.getDate());
+          var mm = String(today.getMonth() + 1); //January is 0!
+          var yyyy = today.getFullYear();
+          var sec = String(today.getSeconds()).padStart(2, '0');
+          var min = String(today.getMinutes()).padStart(2, '0');
+          var hrs = String(today.getHours()).padStart(2, '0');
+          today = dd + '-' + mm + '-' + yyyy;
+          timenow = hrs +":"+min+":"+sec;
+          let root = firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+'/Data/Messages_logs/'+data['Messages_logs_CIV']).set(
+              {"Content":document.getElementById("sendMessage").value,
+              "Date":today,"Time":timenow});
+          if (root){
+            data['Messages_logs_CIV'] = Number(data['Messages_logs_CIV'])+1;
+            let temp = String("M"+(Number(data['Stream_Update'].substr(1))+1))
+            data['Stream_Update'] = temp;
+            let root = firebase.database().ref('Devices/'+document.getElementById("MyDevicesboxopt")[document.getElementById("MyDevicesboxopt").selectedIndex].value+'/Data/Metadata').update(data)
+    	    root.then(function(value){ dat=value; alert("Message Send Successfully"); onChangeDevice(); }, function(error){dat = error; alert("An error occured ! "+dat.message); });
+          } else {
+            console.log("No data available");
+            //alert("No data available");
+            document.getElementById("Devicedata").innerHTML = "<div class=\"alert alert-danger\"><strong>Error!</strong> <p>No data available </p></div>"
+        }
+      }
+      }).catch((error) => {
+	alert(error.message)
+        console.error(error);
+      });
+}
+        </script>
+        <style>
+        body {
+    background: linear-gradient(to right, rgb(0,188,212), rgb(38,166,154));
+    color: #ededed;
+    font-family: "Century Gothic", CenturyGothic, Geneva, AppleGothic, sans-serif;
+    user-select: none;
+  }
+
+  html,body {
+    height: 100%;
+  }
+
+  .global-container{
+    height:100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+  }
+
+  form{
+    padding-top: 10px;
+    font-size: 14px;
+    margin-top: 30px;
+  }
+
+  .card-title{ font-weight:300; }
+
+  .btn{
+    font-size: 14px;
+    margin-top:20px;
+  }
+
+
+  .login-form{
+    width:330px;
+    margin:20px;
+  }
+
+  .sign-up{
+    text-align:center;
+    padding:20px 0 0;
+  }
+
+  .alert{
+    margin-bottom:-30px;
+    font-size: 13px;
+    margin-top:20px;
+  }
+
+        </style>
+
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+        <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+    </head>
+    <body>
+      <nav class="navbar navbar-expand-sm navbar-light bg-light" id="activitybar" style="display: none;" >
+        <a class="navbar-brand" href="#">Health Caretaker Bot</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+          <ul class="navbar-nav mr-auto">
+          </ul>
+          <form class="form-inline my-2 my-lg-0" style="padding-top:0px;">
+            <h5 class="nav-item active" id="navuname" style="margin-bottom:0px;" href="#">Welcome  <span class="sr-only">(current)</span></h5>
+            <!-- <button class="btn btn-outline-success my-2 my-sm-0" style="margin-left: 10px;" onclick="refreshContent(); return false;" type="submit">Refresh</button>
+            -->
+	    <button class="btn btn-outline-primary my-2 my-sm-0" onclick="onClickProfile(); return false;" style="margin-left: 10px;" type="submit">Profile</button>
+            <button class="btn btn-outline-danger my-2 my-sm-0" onclick="onLogout(); return false;" style="margin-left: 10px;" type="submit">Logout</button>
+          </form>
+        </div>
+      </nav>
+       <div class="container text-centre" id="AddDeviceCard" style="display: none;" >
+        <div class="global-container">
+          <div class="card login-form">
+          <div class="card-body">
+            <h3 class="card-title text-center">Add New Device</h3>
+            <div class="card-text">
+              <!--
+              <div class="alert alert-danger alert-dismissible fade show" role="alert">Incorrect username or password.</div> -->
+              <form>
+                <!-- to error: add class "has-danger" -->
+                <div class="form-group">
+                  <label for="addDevice">Enter unique device id </label>
+                  <input type="text" class="form-control form-control-sm" id="addDevice" aria-describedby="Enter Unique Device ID">
+                </div>
+                <div class="form-group">
+                  <label for="addDeviceName">Enter device name</label>
+                  <input type="text" class="form-control form-control-sm" id="addDeviceName" aria-describedby="Enter device name">
+                </div>
+                <button onclick="addDevices(); return false;" class="btn btn-primary btn-block">Add Device</button>
+                <button onclick="closeDeviceCard(); return false;" class="btn btn-danger btn-block">Close</button>
+              </form>
+            </div>
+          </div>
+        </div>
+        </div>
+      </div>
+
+      <div class="container text-centre" id="EditUserCard" style="display: none;">
+        <div class="global-container">
+          <div class="card login-form">
+          <div class="card-body">
+            <h3 class="card-title text-center">Edit User details</h3>
+            <div class="card-text">
+              <!--
+              <div class="alert alert-danger alert-dismissible fade show" role="alert">Incorrect username or password.</div> -->
+              <form>
+                <!-- to error: add class "has-danger" -->
+                <div class="form-group">
+                  <label for="edituname">Change user name</label>
+                  <input type="text" class="form-control form-control-sm" id="edituname" >
+                </div>
+                <div class="form-group">
+                  <label for="edittid">Link telegram id</label>
+                  <input type="text" class="form-control form-control-sm" id="edittid">
+                </div>
+                <button onclick="onChangeUserDetails(); return false;" class="btn btn-primary btn-block">Save</button>
+		<button onclick="closeDeviceCard(); return false;" class="btn btn-danger btn-block">Close</button>
+
+              </form>
+            </div>
+          </div>
+        </div>
+        </div>
+      </div>
+
+
+      <div class="container text-centre" id="activity" style="display: none;">
+        <div class="container text-centre">
+        <div class="global-container">
+          <div class="card login-form">
+          <div class="card-body">
+	    <h4 class="card-title text-center">Manage Devices</h4>
+            <div class="card-text">
+              <!--
+              <div class="alert alert-danger alert-dismissible fade show" role="alert">Incorrect username or password.</div> -->
+              <form class="m-0" >
+                <!-- to error: add class "has-danger" -->
+
+         <div class="form-group m-0">
+		<select class="form-select btn mt-0 dropdown-toggle btn-outline-primary form-select-lg" onchange="onChangeDevice(); return false;" id="MyDevicesboxopt" aria-label=".form-select-lg example">
+            <div class="dropdown-menu">
+                  <option class="dropdown-item" selected value='0' >Select Device</option>
+            </div>
+           </select>
+        </div>
+         <div class="form-group m-0">
+	    <button class="btn btn-outline-primary " onclick="onClickAddDevice(); return false;" placeholder="Username">Add Device</button>
+        </div>
+	 <div class="form-group m-0">
+	    <button class="btn btn-outline-danger " onclick="onClickRemoveDevice(); return false;" placeholder="Username">Remove Device</button>
+        </div>
+
+              </form>
+            </div>
+          </div>
+        </div>
+        </div>
+      </div>
+	<h2 id="edat"></h2>.
+        <h1></h1>
+        <div class="container text-centre" id="SendDataToDevice" style="display: none;">
+
+        <div style="padding-top: 15px;">
+         <h5>Set new alarm times</h5>
+         <div class="row">
+         <div class="col-md-10">
+         	<input type="text" class="form-control mt-sm-2 mr-sm-2" placeholder="Enter Alarm times comma separated" id="setALtime" >
+         </div>
+          <div class="col-md-2">
+         	     <button type="submit" class="btn btn-primary btn-block mt-sm-2" onclick="setMedicineAlarmTimes(); return false;">Set</button>
+        </div>
+        </div>
+        </div>
+
+        <div style="padding-top: 15px;">
+        <h5>Set a message</h5>
+         <div class="row">
+         <div class="col-md-10">
+         	  <input type="text" class="form-control mt-sm-2 mr-sm-2" placeholder="Enter Message/Note" id="sendMessage">
+         </div>
+         <div class="col-md-2">
+         	    <button type="submit" class="btn btn-primary btn-block mt-sm-2" onclick="sendNoteMessage(); return false;">Send</button>
+        </div>
+        </div>
+        </div>
+
+        <div style="padding-top: 15px; padding-bottom: 15px;">
+        <h5> Set SOS Details </h5>
+        <h8>Set SOS message content</h8>
+         <div class="row">
+         <div class="col-md-12">
+         	 <input type="text" class="form-control mt-sm-2 mr-sm-2" placeholder="Enter message text" id="setSosMessage">
+         </div>
+        </div>
+        </div>
+
+        <div style="padding-top: 0px; padding-bottom: 15px;">
+        <h8>Set SOS contacts info.</h8>
+         <div class="row">
+         <div class="col-md-10">
+         	 <input type="text" class="form-control mt-sm-2 mr-sm-2" placeholder="Enter contacts info. comma separated" id="setContact">
+         </div>
+         <div class="col-md-2">
+         	    <button type="submit" class="btn btn-primary btn-block mt-sm-2" onclick="setSOSDetails(); return false;">Set</button>
+        </div>
+        </div>
+        </div>
+
+
+        </div>
+        <div  class="container mt-lg-2" >
+        <button onclick="onChangeDevice(); return false;" class="btn btn-info btn-block">Refresh</button>
+        </div>
+        <div class="container mt-sm-6 text-centre" id="Deviceuserspanel" style="display: \" \";">
+        </div>
+        <div class="container mt-sm-6 text-centre" id="Devicedata" style="display:'';padding-bottom:16px;">
+        </div>
+
+      </div>
+
+      <div class="container text-centre" id="login" >
+        <div class="global-container">
+          <div class="card login-form">
+          <div class="card-body">
+            <h3 class="card-title text-center">Login to Personal Healtcare-Taker Web App</h3>
+            <div class="card-text">
+              <!--
+              <div class="alert alert-danger alert-dismissible fade show" role="alert">Incorrect username or password.</div> -->
+              <form>
+                <!-- to error: add class "has-danger" -->
+                <div class="form-group">
+                  <label for="Lemail">Email address</label>
+                  <input type="email" class="form-control form-control-sm" id="Lemail" aria-describedby="emailHelp">
+                </div>
+                <div class="form-group">
+                  <label for="Lpass">Password</label>
+                  <a  data-toggle="modal" data-target="#myModal" style="float:right;font-size:12px;color:cornflowerblue;">Forgot password?</a>
+                  <input type="password" class="form-control form-control-sm" id="Lpass">
+                </div>
+                <button onclick="onLogin(); return false;" class="btn btn-primary btn-block">Sign in</button>
+
+                <div class="sign-up">
+                  Don't have an account? <a onclick="onClickSignin(); return false;" style="color:cornflowerblue;">Create One</a>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        </div>
+      </div>
+
+
+
+      <div class="container text-centre" id="signup" style="display: none;">
+        <div class="global-container">
+          <div class="card login-form">
+          <div class="card-body">
+            <h3 class="card-title text-center">SignUP to Personal Healthcare-Taker App</h3>
+            <div class="card-text">
+              <!--
+              <div class="alert alert-danger alert-dismissible fade show" role="alert">Incorrect username or password.</div> -->
+              <form>
+                <!-- to error: add class "has-danger" -->
+                <div class="form-group">
+                  <label for="fname">Name</label>
+                  <input type="text" class="form-control form-control-sm" id="fname" aria-describedby="emailHelp">
+                </div>
+                <div class="form-group">
+                  <label for="email">Email address</label>
+                  <input type="email" class="form-control form-control-sm" id="email" aria-describedby="emailHelp">
+                </div>
+                <div class="form-group">
+                  <label for="pass">Password</label>
+                  <input type="password" class="form-control form-control-sm" id="pass" aria-describedby="emailHelp">
+                </div>
+                <div class="form-group">
+                  <label for="cpass">Confirm Password</label>
+                  <input type="password" class="form-control form-control-sm" id="cpass" aria-describedby="emailHelp">
+                </div>
+
+
+                <button onclick="myfun(); return true;" class="btn btn-primary btn-block" >SignUp</button>
+
+                <div class="sign-up">
+                  Already have an account? <a href="#" onclick="onClickLogin(); return false;">Login</a>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        </div>
+
+      </div>
+
+      <div class="modal fade" id="myModal">
+        <div class="modal-dialog modal-sm">
+          <div class="modal-content">
+
+            <!-- Modal Header -->
+            <div class="modal-header">
+              <h4 class="modal-title">Reset Password</h4>
+              <button type="button" class="close" data-dismiss="modal">×</button>
+            </div>
+            <!-- Modal body -->
+            <div class="modal-body" id="resetpopup">
+                <input type="text" id="Remail" class="form-control" placeholder="Email">
+            </div>
+
+            <!-- Modal footer -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="rstbtn" onclick="sendResetMail(); return false;">Send Link</button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </body>
+</html>
